@@ -19,11 +19,14 @@ class DashboardViewController: BaseViewController, PizzaViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         pizzaView.pizzaDelegate = self
+        
+        orderNowButton.accessibilityLabel = "\(orderNowButton.title(for: .normal)!) \(orderNowButtonSubtitle.text!))"
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         pizzaView.pizza = SuperPizzaManagerHandlerWrapper.getStoredPizzaBack()
+        pizzaView.refreshUI()
         updateUI()
     }
     
@@ -35,12 +38,14 @@ class DashboardViewController: BaseViewController, PizzaViewDelegate {
             orderNowButton.isHidden = true
             orderNowButtonSubtitle.isHidden = true
             self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(DashboardViewController.disposePizza))
+            self.navigationItem.rightBarButtonItem?.accessibilityLabel = NSLocalizedString("Dispose Pizza", comment: "Accessibility Label for the trash top right button on the main dashboard")
         }
         else {
             pizzaPanel.isHidden = true
             orderNowButton.isHidden = false
             orderNowButtonSubtitle.isHidden = false
             self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(DashboardViewController.showActionPicker))
+            self.navigationItem.rightBarButtonItem?.accessibilityLabel = NSLocalizedString("Add Pizza", comment: "Accessibility Label for the '+' top right button on the main dashboard")
         }
         SuperPizzaManagerHandlerWrapper.storePizza(pizza: pizza)
     }
@@ -106,5 +111,14 @@ class DashboardViewController: BaseViewController, PizzaViewDelegate {
             let detailViewController = segue.destination as? DetailViewController {
             detailViewController.isBuyingPizza = false
         }
+    }
+}
+
+class AccessibleViewContainingLabels: UIView {
+    override var accessibilityLabel: String? {
+        get {
+            return subviews.flatMap({$0 as? UILabel}).map({$0.text}).reduce("", {"\($0!) \($1!)"})
+        }
+        set {}
     }
 }

@@ -46,11 +46,7 @@ protocol PizzaViewDelegate {
 class PizzaView: UIView {
     var pizzaDelegate: PizzaViewDelegate?
     
-    var pizza: Pizza = Pizza(portions: [false, true, true, true, false , false, true, true]) {
-        didSet {
-            refreshUI()
-        }
-    }
+    var pizza: Pizza = Pizza(portions: [false, true, true, true, false , false, true, true])
     
     func disposePizza() {
         pizza.portions = pizza.portions.map({ _ in false })
@@ -143,6 +139,13 @@ class PizzaView: UIView {
     func refreshUI() {
         self.setNeedsDisplay()
         self.pizzaDelegate?.pizzaStateUpdated(self.pizza)
+        let availableSlices = pizza.portions.reduce(0, {$0 + ($1 ? 1 : 0)})
+        var index = 0
+        self.accessibilityElements = pizza.portions.map({ (isAvailable) -> UIAccessibilityElement in
+            let pizzaSlice = UIAccessiblePizzaSlice(pizzaView: self, availableSlices: availableSlices, portionId: index)
+            index += 1
+            return pizzaSlice
+        })
     }
     
     //Mark - Touches
@@ -180,5 +183,46 @@ extension String {
             return UIColor.clear
         }
         return UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: CGFloat(a) / 255)
+    }
+}
+
+class UIAccessiblePizzaSlice: UIAccessibilityElement {
+    weak var pizzaView: PizzaView?
+    var portionId: Int = 0
+    
+    convenience init(pizzaView: PizzaView, availableSlices: Int, portionId: Int) {
+        self.init(accessibilityContainer: pizzaView)
+        self.accessibilityLabel = NSLocalizedString("Pizza slice out of \(availableSlices) left", comment: "Accessibility label for a pizza slice.")
+        self.accessibilityHint = NSLocalizedString("Double Tap to remove this pizza slice", comment: "Accessibility hint for pizza slices.")
+        self.accessibilityTraits = (UIAccessibilityTraitNone)
+        self.isAccessibilityElement = pizzaView.pizza.portions[portionId]
+        self.pizzaView = pizzaView
+        self.portionId = portionId
+    }
+
+    override var accessibilityFrameInContainerSpace: CGRect {
+        set {}
+        get {
+            guard let pizzaView = pizzaView else { return .zero }
+            return (pizzaView.pathForPortion(portionId)).boundingBox
+        }
+    }
+    
+    override var accessibilityPath: UIBezierPath? {
+        set { }
+        get {
+            guard let pizzaView = pizzaView else { return UIBezierPath() }
+            return UIAccessibilityConvertPathToScreenCoordinates(UIBezierPath(cgPath:pizzaView.pathForPortion(portionId)), pizzaView)
+        }
+    }
+    
+    override func accessibilityActivate() -> Bool {
+        pizzaView?.pizza.portions[portionId] = false
+        pizzaView?.refreshUI()
+        
+        if let pizzaSlice = self.pizzaView?.accessibilityElements?.flatMap({$0 as? UIAccessibilityElement}).first(where:{$0.isAccessibilityElement}) {
+            UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, pizzaSlice)
+        }
+        return true
     }
 }
